@@ -2,7 +2,7 @@
 name: model-rotation-manager
 displayName: Model Rotation Manager
 description: Automatically detects API errors in Claude Code and rotates through configured models (Opus 4 → Sonnet 4 → Haiku 3.5) for uninterrupted AI assistance.
-version: 1.0.0
+version: 1.0.1
 author: Shreemeetnayak
 license: MIT
 repository: https://github.com/Shreemeetnayak/model-rotation-manager

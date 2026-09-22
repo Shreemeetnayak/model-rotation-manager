@@ -1,6 +1,6 @@
 {
   "name": "model-rotation-manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Auto-detects errors in Claude Code, rotates through omniroute/combo models, and retries prompts without manual intervention",
   "type": "module",
   "scripts": {
