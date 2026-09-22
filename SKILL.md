@@ -1,242 +1,90 @@
 ---
 name: model-rotation-manager
-description: Auto-detects errors in Claude Code, rotates through omniroute/combo models, and retries prompts without manual intervention. Eliminates "try again" commands.
+displayName: Model Rotation Manager
+description: Automatically detects API errors in Claude Code and rotates through configured models (Opus 4 → Sonnet 4 → Haiku 3.5) for uninterrupted AI assistance.
+version: 1.0.0
+author: Shreemeetnayak
+license: MIT
+repository: https://github.com/Shreemeetnayak/model-rotation-manager
+homepage: https://github.com/Shreemeetnayak/model-rotation-manager
+category: productivity
+tags:
+  - model-rotation
+  - error-handling
+  - claude-code
+  - automation
+  - productivity
+main: src/main.tsx
+icon: icons/icon.png
+platforms:
+  - win32
+  - darwin
+  - linux
+engines:
+  node: ">=18.0.0"
+  rust: ">=1.70.0"
 ---
 
-# Model Rotation Manager Skill
+# Model Rotation Manager
 
-A Tauri-based desktop application that wraps Claude Code CLI to provide automatic model rotation on errors. Works seamlessly with omniroute/combo setups.
-
-## Problem Solved
-
-When using Claude Code with omniroute/combo for model rotation, users often encounter:
-- Rate limits on specific models
-- Model overload/at-capacity errors
-- Timeouts on certain models
-- Context window exceeded errors
-
-Currently, users must manually type "try again" or restart with a different model. This skill automates that entirely.
+A Tauri-based desktop plugin for Claude Code that automatically detects API errors and rotates between Claude models for uninterrupted AI assistance.
 
 ## Features
 
-### Core Features
-- **Auto Error Detection**: Monitors stderr/stdout for 5+ common error patterns
-- **Intelligent Model Rotation**: Rotates through configured model list on error
-- **Automatic Retry**: Resends same prompt with next model (configurable max retries)
-- **Manual Cascade Button**: One-click to advance to next model
-- **Error Learning**: Tracks which models fail on which error types
-- **System Tray**: Runs in background, accessible via tray icon
-
-### Configuration
-- **Models Tab**: Add/remove/reorder models with drag-and-drop
-- **Error Patterns Tab**: Predefined + custom regex patterns
-- **Behavior Tab**: Max retries (1-10), retry delay, auto-rotation toggle
-
-### Integration
-- Works with existing omniroute/combo setup
-- Uses `ANTHROPIC_MODEL` env var for model switching
-- No changes to your Claude Code configuration needed
+- **Auto Error Detection**: Monitors for rate limits, timeouts, overloads, context limits, auth errors
+- **Smart Model Rotation**: Opus 4 → Sonnet 4 → Haiku 3.5 (configurable priority)
+- **Retry Logic**: Configurable retries (default 3) with delay (default 1s)
+- **Full UI**: Dashboard, Settings (3 tabs), Error History with filtering
+- **Manual Cascade**: One-click button to force model rotation
+- **Privacy-First**: SHA256 prompt hashing, local storage, zero telemetry
 
 ## Installation
 
-### As a Skill (Recommended)
-```bash
-# From the skill directory
-npx skills add ./model-rotation-manager -g -y
-```
+### Option 1: From GitHub Release (Easiest)
+1. Download `ModelRotationManager-v1.0.0.zip` from [Releases](https://github.com/Shreemeetnayak/model-rotation-manager/releases)
+2. Extract to: `%USERPROFILE%\.claude\plugins\ModelRotationManager\`
+3. Restart Claude Code
+4. Access via Plugins menu → "Model Rotation Manager"
 
-### As a Standalone App
+### Option 2: Build from Source
 ```bash
-# Build from source
-cd ModelRotationManager
+git clone https://github.com/Shreemeetnayak/model-rotation-manager.git
+cd model-rotation-manager
 npm install
-npm run tauri build
-# Install the .msi from src-tauri/target/release/bundle/msi/
+npm run build
+npm run tauri:build
 ```
 
 ## Usage
 
-### Starting the Manager
-The skill adds a command to Claude Code:
-```
-/model-rotation-manager
-```
+1. Open Claude Code
+2. Press `Ctrl+Shift+P` → "Model Rotation Manager" → "Open Dashboard"
+3. Configure models in Settings → Models (defaults provided)
+4. Use Claude Code normally - plugin handles errors automatically
 
-Or launch from system tray after first run.
+## Configuration
 
-### Configuration
-1. Click the tray icon → Settings
-2. **Models Tab**: Add your omniroute/combo model names
-3. **Error Patterns Tab**: Enable/disable patterns (all enabled by default)
-4. **Behavior Tab**: Set max retries (default 3), delay (default 1000ms)
+- **Models Tab**: Add/remove models with ID, name, env var, priority, enabled
+- **Error Patterns Tab**: Pre-configured regex patterns for common errors
+- **Behavior Tab**: Max retries, retry delay, auto-rotate toggle
 
-### During Use
-- **Auto**: Errors trigger rotation automatically
-- **Manual**: Click tray icon → "Cascade to Next Model" or press `Ctrl+Shift+C`
-- **Status**: Tray icon shows green (ready), yellow (retrying), red (error)
+## How It Works
 
-## Architecture
+1. Plugin monitors Claude Code output for error patterns
+2. On error detection: logs error, increments retry counter
+3. If retries < max: waits delay, resends prompt
+4. If retries ≥ max: rotates to next enabled model, resends prompt
+4. Process repeats until success
 
-```
-┌─────────────────────────────────────────────────┐
-│              Tauri + React App                  │
-├─────────────────────────────────────────────────┤
-│  Frontend: Dashboard, Settings, History, Tray  │
-├─────────────────────────────────────────────────┤
-│  Backend (Rust):                               │
-│  ├── ModelRotationManager - Core logic         │
-│  ├── ClaudeCodeInterface - Process management  │
-│  ├── ErrorPatternMatcher - Regex detection     │
-│  ├── SettingsStore - JSON persistence          │
-│  └── ErrorHistoryStore - SQLite logging        │
-├─────────────────────────────────────────────────┤
-│  Claude Code CLI (child process)               │
-│  stdin/stdout/stderr ↔ Tauri commands          │
-└─────────────────────────────────────────────────┘
-```
+## Privacy
 
-## Data Models
+- No telemetry or data collection
+- All data stored locally in `%LOCALAPPDATA%\ModelRotationManager`
+- Only SHA256 hashes of prompts stored (never full text)
+- No network calls except Claude Code's own API requests
+- Open source - full code auditable
 
-### ModelConfig
-```typescript
-interface ModelConfig {
-  id: string;
-  name: string;           // e.g., "Claude 3 Opus"
-  cliFlag?: string;       // e.g., "--model opus"
-  envVar?: string;        // e.g., "ANTHROPIC_MODEL=claude-3-opus"
-  priority: number;       // Lower = higher priority
-  enabled: boolean;
-}
-```
+## Support
 
-### ErrorPattern
-```typescript
-interface ErrorPattern {
-  id: string;
-  name: string;
-  regex: string;          // e.g., "/rate.?limit|too many requests/i"
-  description: string;
-  enabled: boolean;
-}
-```
-
-### ErrorRecord
-```typescript
-interface ErrorRecord {
-  id: string;
-  timestamp: number;      // Unix ms
-  modelId: string;
-  promptHash: string;     // SHA256, not full prompt
-  errorMessage: string;
-  matchedPatternId?: string;
-  rotated: boolean;
-  rotationTargetModelId?: string;
-}
-```
-
-## Default Error Patterns
-
-| Pattern ID | Regex | Description |
-|------------|-------|-------------|
-| `rate-limit` | `/rate.?limit|too many requests/i` | Rate limiting errors |
-| `timeout` | `/timeout|timed out/i` | Request timeouts |
-| `overload` | `/overloaded|at capacity|model.?overloaded/i` | Model at capacity |
-| `context-length` | `/context.?length|maximum context|context.?exceeded/i` | Context window exceeded |
-| `auth` | `/authentication|invalid.?api.?key|unauthorized/i` | Authentication failures |
-
-## Configuration File
-
-Stored at `%APPDATA%\ModelRotationManager\settings.json`:
-
-```json
-{
-  "models": [
-    { "id": "opus-4", "name": "Claude Opus 4", "envVar": "ANTHROPIC_MODEL=claude-opus-4", "priority": 1, "enabled": true },
-    { "id": "sonnet-4", "name": "Claude Sonnet 4", "envVar": "ANTHROPIC_MODEL=claude-sonnet-4", "priority": 2, "enabled": true },
-    { "id": "haiku-3-5", "name": "Claude Haiku 3.5", "envVar": "ANTHROPIC_MODEL=claude-haiku-3-5", "priority": 3, "enabled": true }
-  ],
-  "currentModelIndex": 0,
-  "errorPatterns": [
-    { "id": "rate-limit", "name": "Rate Limit", "regex": "rate.?limit|too many requests", "description": "API rate limiting", "enabled": true },
-    { "id": "timeout", "name": "Timeout", "regex": "timeout|timed out", "description": "Request timeout", "enabled": true },
-    { "id": "overload", "name": "Model Overload", "regex": "overloaded|at capacity|model.?overloaded", "description": "Model at capacity", "enabled": true },
-    { "id": "context-length", "name": "Context Length", "regex": "context.?length|maximum context|context.?exceeded", "description": "Context window exceeded", "enabled": true },
-    { "id": "auth", "name": "Authentication", "regex": "authentication|invalid.?api.?key|unauthorized", "description": "Auth failure", "enabled": true }
-  ],
-  "maxRetries": 3,
-  "retryDelayMs": 1000,
-  "autoRotate": true
-}
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `/model-rotation-manager` | Launch/show the manager dashboard |
-| `/model-rotation-manager cascade` | Manually rotate to next model |
-| `/model-rotation-manager status` | Show current model and rotation status |
-| `/model-rotation-manager config` | Open settings |
-
-## Requirements
-
-- Windows 10/11 (64-bit)
-- Node.js >= 18
-- Rust >= 1.70
-- Claude Code CLI installed and in PATH
-- Existing omniroute/combo configuration working
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Development mode
-npm run tauri dev
-
-# Build for distribution
-npm run tauri build
-
-# Run tests
-npm test
-cargo test
-```
-
-## Permissions
-
-The skill requires these Tauri permissions:
-- `process:spawn` - Launch Claude Code CLI
-- `fs:read` / `fs:write` - Settings and history storage
-- `shell:execute` - System tray operations
-- `notification:show` - Status notifications
-
-## Troubleshooting
-
-### "Claude Code not found"
-Ensure `claude` is in your PATH. Test with `claude --version` in terminal.
-
-### "Model not rotating"
-1. Check Settings → Models: models are enabled and ordered correctly
-2. Check Settings → Error Patterns: patterns match your errors
-3. Verify omniroute/combo respects `ANTHROPIC_MODEL` env var
-
-### "Settings not persisting"
-Check `%APPDATA%\ModelRotationManager\` exists and is writable.
-
-## Changelog
-
-### v1.0.0 (2026-09-22)
-- Initial release
-- Auto error detection with 5 default patterns
-- Model rotation with configurable priority
-- Manual cascade button
-- System tray integration
-- Error history with SQLite
-- Full settings persistence
-
----
-
-**Author**: Model Rotation Manager Team
-**License**: MIT
-**Repository**: https://github.com/yourusername/model-rotation-manager
+- Issues: [GitHub Issues](https://github.com/Shreemeetnayak/model-rotation-manager/issues)
+- Discussions: [GitHub Discussions](https://github.com/Shreemeetnayak/model-rotation-manager/discussions)
