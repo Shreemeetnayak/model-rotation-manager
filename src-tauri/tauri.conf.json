@@ -1,0 +1,42 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "productName": "ModelRotationManager",
+  "version": "1.0.0",
+  "identifier": "com.modelrotationmanager.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Model Rotation Manager",
+        "width": 800,
+        "height": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "msi",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "© 2026 Model Rotation Manager Team",
+    "category": "Utility",
+    "shortDescription": "Auto-rotates Claude Code models on errors",
+    "longDescription": "A desktop application that automatically detects errors in Claude Code, rotates through configured models (omniroute/combo), and retries prompts without manual intervention."
+  }
+}

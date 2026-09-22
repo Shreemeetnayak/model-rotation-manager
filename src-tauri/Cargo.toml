@@ -1,0 +1,27 @@
+[package]
+name = "model-rotation-manager"
+version = "1.0.0"
+description = "Auto-rotates Claude Code models on errors"
+authors = ["Model Rotation Manager Team"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-process = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-notification = "2.0"
+tauri-plugin-store = "2.0"
+tauri-plugin-sql = { version = "2.0", features = ["sqlite"] }
+tauri-plugin-os = "2.0"
+tauri-plugin-dialog = "2.0"
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.10"
+sha2 = "0.10"
+dirs = "5.0"
+thiserror = "1.0"
