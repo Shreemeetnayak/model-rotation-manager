@@ -40,3 +40,6 @@ src-tauri/gen/
 # Test coverage
 coverage/
 .nyc_output/
+
+# graphify output
+graphify-out/

@@ -1,102 +1,99 @@
-# Model Rotation Manager Plugin
+# Model Rotation Manager
 
-A Claude Code plugin that automatically detects errors, rotates through configured models (omniroute/combo), and retries prompts without manual intervention.
+Claude Code plugin that keeps OmniRoute combos working when models, credentials or
+providers fail — so you stop typing "try again".
 
-## Features
+## What it does
 
-- **Auto Error Detection**: Monitors Claude Code stderr/stdout for known error patterns
-- **Intelligent Model Rotation**: Rotates through user-configured model list when errors detected
-- **Automatic Retry**: Resends the same prompt with the next model in rotation
-- **Manual Cascade**: One-click button to manually advance to next model
-- **Error Learning**: Tracks which models fail on which error types to improve future decisions
-- **System Tray**: Runs in background with accessible dashboard
+| Problem you see | What the plugin does |
+|-----------------|----------------------|
+| `Request failed, retrying` | Classifies the failure, excludes the incapable route, picks a working one |
+| `429` rate limit | Cools down that credential only, rotates to another credential |
+| `502` / `503` | Short cooldown on that route, falls back |
+| `400` context overflow | Excludes that model **for this request** before any API call |
+| `model not available in active live catalog` | Refreshes catalog, stops routing to it until it returns |
+| `401` / `403` | Disables that credential, other credentials keep serving |
+| Timeout / connection reset | Health penalty, fallback to next route |
+| OmniRoute not running | Starts it automatically when Claude Code starts |
 
-## Installation
+## Install
 
-1. Copy this entire folder to your Claude Code plugins directory
-   - Typically: `%USERPROFILE%\.claude\plugins\`
-2. Restart Claude Code
-3. The plugin will appear in your plugins list
+Add as a marketplace from GitHub:
 
-## Usage
+```
+/plugin marketplace add Shreemeetnayak/model-rotation-manager
+```
 
-1. Launch Model Rotation Manager from your plugins menu
-2. Configure your models in Settings (default includes common Anthropic models)
-3. Set error patterns to watch for (rate limits, timeouts, etc.)
-4. Start using Claude Code normally - the app will handle errors automatically
-5. Use the "Cascade" button or system tray menu to manually rotate models
+Then install:
 
-## How It Works
+```
+/plugin install model-rotation-manager@model-rotation-manager
+```
 
-1. Spawns Claude Code CLI as child process and monitors stdout/stderr
-2. Matches output against configured error patterns using regex
-3. On match, rotates to next enabled model in rotation list
-4. Retries the same prompt with new model configuration
-5. Logs all errors and rotation decisions for review
-6. Provides manual cascade functionality for user-controlled rotation
-
-## Configuration
-
-### Models Tab
-- Add/remove/reorder models in your rotation list
-- Each model needs: ID, Name, and optionally CLI flag or environment variable
-- Default models include Claude Opus 4, Sonnet 4, and Haiku 3.5
-
-### Error Patterns Tab
-- Predefined patterns for common errors:
-  - Rate limit: `/rate.?limit/i` or `/too many requests/i`
-  - Timeout: `/timeout/i` or `/timed out/i`
-  - Model overload: `/overloaded/i` or `/at capacity/i`
-  - Context window: `/context.?length/i` or `/maximum context/i`
-  - Auth error: `/authentication/i` or `/invalid api key/i`
-- Add custom regex patterns as needed
-- Test patterns against sample error text
-
-### Behavior Tab
-- Max retries: 1-10 (default: 3)
-- Retry delay: milliseconds between retries (default: 1000ms)
-- Auto-rotation: Enable/disable automatic rotation
-- Notification preferences
-
-## Data Storage
-
-- **Settings**: Stored locally in `%LOCALAPPDATA%\ModelRotationManager\settings.json`
-- **Error History**: Stored in SQLite database at `%LOCALAPPDATA%\ModelRotationManager\error_history.db`
-- **Privacy**: Only stores SHA256 hashes of prompts (never full prompts)
-- **Security**: No network calls unless update checks are explicitly enabled
+Or copy the folder manually to `%USERPROFILE%\.claude\plugins\model-rotation-manager`
+and restart Claude Code.
 
 ## Requirements
 
-- Windows 10/11 (64-bit)
-- Claude Code CLI installed and accessible in PATH
-- Works with existing omniroute/combo setup
+- Claude Code with plugin support
+- OmniRoute installed and `omniroute` on PATH (`npm install -g omniroute`)
+- Default port 20128, or set `OMNIROUTE_PORT`
 
-## Development
+## Commands
 
-If you wish to modify or build from source:
+- `/cascade` — move to the next capable route
+- `/rotation-status` — show current model, eligible routes, and exclusion reasons
 
-```bash
-# Install dependencies
-npm install
+## How it avoids wasting requests
 
-# Development mode
-npm run tauri:dev
+Before sending, the router filters routes by:
 
-# Build for production
-npm run tauri:build
-```
+1. Model exists in the provider's live catalog
+2. Provider reachable
+3. Credential healthy and not cooling down
+4. `estimated_input + output_budget + margin <= context_window`
+5. Required capabilities present
+6. Concurrency slot free
+
+Only then is a request sent. A 128K model never receives a 160K request.
+
+## Concurrency
+
+Each request independently acquires a free route. One busy conversation never blocks
+another. A credential's limit applies only to that credential.
+
+## Permissions
+
+| Permission | Why |
+|-----------|-----|
+| `Bash(curl:*)` | Read health and status endpoints |
+| `Bash(omniroute:*)` | Start the server if it is not running |
+
+No API keys are stored by this plugin. OmniRoute owns credential storage.
 
 ## Troubleshooting
 
-- **Plugin not showing**: Ensure folder is copied to correct plugins directory and Claude Code is restarted
-- **Not detecting errors**: Check that error patterns match actual Claude Code error output
-- **Models not rotating**: Verify that environment variables or CLI flags are correctly configured
-- **Process issues**: Check that `claude` command is in your system PATH
+**Marketplace add fails** — Claude Code requires `.claude-plugin/marketplace.json` at
+the repository root. This repo now has it. If you cloned before v1.1.0, pull the latest.
 
-## Support
+**OmniRoute does not start** — check `omniroute --version`, then
+`~/.omniroute/logs/hook-autostart.log`.
 
-For issues or feature requests, please check the plugin documentation or contact the Model Rotation Manager Team.
+**Still seeing context errors** — the model you are calling directly does not do
+context-aware selection. Use a combo configured with `context-optimized` or
+`context-relay` strategy, and verify with `/rotation-status`.
 
----
-Version: 1.0.0
-Built with Tauri + React + TypeScript
+## Development
+
+The `src/` and `src-tauri/` folders contain an optional Tauri desktop dashboard.
+They are not required for the plugin to work.
+
+```bash
+npm install
+npm run build       # frontend
+cd src-tauri && cargo check
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).

@@ -1,0 +1,13 @@
+{
+  "name": "model-rotation-manager",
+  "version": "1.1.0",
+  "description": "Automatic OmniRoute model/credential rotation for Claude Code. Detects rate limits, timeouts, overloads and context overflows, then routes to a capable route automatically instead of failing.",
+  "author": {
+    "name": "Shreemeetnayak",
+    "url": "https://github.com/Shreemeetnayak"
+  },
+  "homepage": "https://github.com/Shreemeetnayak/model-rotation-manager",
+  "repository": "https://github.com/Shreemeetnayak/model-rotation-manager",
+  "license": "MIT",
+  "keywords": ["omniroute", "model-rotation", "credential-rotation", "fallback", "rate-limit", "context-window"]
+}

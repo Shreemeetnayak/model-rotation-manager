@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "model-rotation-manager",
+  "description": "Automatic OmniRoute model/credential rotation for Claude Code",
+  "owner": {
+    "name": "Shreemeetnayak",
+    "url": "https://github.com/Shreemeetnayak"
+  },
+  "plugins": [
+    {
+      "name": "model-rotation-manager",
+      "source": "./",
+      "description": "Detects API errors (rate limits, timeouts, overloads, context overflow) and automatically routes requests to an available model/credential instead of failing.",
+      "category": "productivity",
+      "tags": ["omniroute", "model-rotation", "fallback", "rate-limit"]
+    }
+  ]
+}

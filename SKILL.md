@@ -1,90 +1,63 @@
 ---
 name: model-rotation-manager
-displayName: Model Rotation Manager
-description: Automatically detects API errors in Claude Code and rotates through configured models (Opus 4 → Sonnet 4 → Haiku 3.5) for uninterrupted AI assistance.
-version: 1.0.1
-author: Shreemeetnayak
-license: MIT
-repository: https://github.com/Shreemeetnayak/model-rotation-manager
-homepage: https://github.com/Shreemeetnayak/model-rotation-manager
-category: productivity
-tags:
-  - model-rotation
-  - error-handling
-  - claude-code
-  - automation
-  - productivity
-main: src/main.tsx
-icon: icons/icon.png
-platforms:
-  - win32
-  - darwin
-  - linux
-engines:
-  node: ">=18.0.0"
-  rust: ">=1.70.0"
+description: Use when an OmniRoute combo request fails, returns "Request failed, retrying", or reports rate limit, timeout, overload, 429, 502/503, context-window overflow, or "model not available in active live catalog". Diagnose the route, exclude ineligible models, and pick a capable one.
+allowed-tools: Bash(curl:*), Bash(omniroute:*), Read
 ---
 
 # Model Rotation Manager
 
-A Tauri-based desktop plugin for Claude Code that automatically detects API errors and rotates between Claude models for uninterrupted AI assistance.
+Diagnose and route around OmniRoute failures. Never re-send a request to a route that
+has already been shown to be incapable of handling it.
 
-## Features
+## 1. Check the server first
 
-- **Auto Error Detection**: Monitors for rate limits, timeouts, overloads, context limits, auth errors
-- **Smart Model Rotation**: Opus 4 → Sonnet 4 → Haiku 3.5 (configurable priority)
-- **Retry Logic**: Configurable retries (default 3) with delay (default 1s)
-- **Full UI**: Dashboard, Settings (3 tabs), Error History with filtering
-- **Manual Cascade**: One-click button to force model rotation
-- **Privacy-First**: SHA256 prompt hashing, local storage, zero telemetry
-
-## Installation
-
-### Option 1: From GitHub Release (Easiest)
-1. Download `ModelRotationManager-v1.0.0.zip` from [Releases](https://github.com/Shreemeetnayak/model-rotation-manager/releases)
-2. Extract to: `%USERPROFILE%\.claude\plugins\ModelRotationManager\`
-3. Restart Claude Code
-4. Access via Plugins menu → "Model Rotation Manager"
-
-### Option 2: Build from Source
 ```bash
-git clone https://github.com/Shreemeetnayak/model-rotation-manager.git
-cd model-rotation-manager
-npm install
-npm run build
-npm run tauri:build
+curl -fsS -m 3 http://127.0.0.1:20128/api/health || echo "OmniRoute down"
 ```
 
-## Usage
+If it is down, run `bash hooks/start-omniroute.sh` (or `omniroute serve`) and wait for health.
 
-1. Open Claude Code
-2. Press `Ctrl+Shift+P` → "Model Rotation Manager" → "Open Dashboard"
-3. Configure models in Settings → Models (defaults provided)
-4. Use Claude Code normally - plugin handles errors automatically
+## 2. Classify the failure
 
-## Configuration
+| Signal | Meaning | Action |
+|--------|---------|--------|
+| `429` | rate limit | Cool down that credential; try another credential, then another model |
+| `502` / `503` / `504` | provider unavailable | Short cooldown on that route; try next route |
+| timeout / connection reset | network | Health penalty; try next route |
+| `400` context too large | permanent for this request | Exclude that model permanently for this request |
+| `400` model not in catalog | stale config or removed model | Refresh catalog; exclude until it reappears |
+| `401` / `403` | credential invalid | Disable that credential only — other credentials still work |
 
-- **Models Tab**: Add/remove models with ID, name, env var, priority, enabled
-- **Error Patterns Tab**: Pre-configured regex patterns for common errors
-- **Behavior Tab**: Max retries, retry delay, auto-rotate toggle
+Never treat a `400` as retryable. It will fail identically on the next attempt.
 
-## How It Works
+## 3. Filter routes BEFORE calling
 
-1. Plugin monitors Claude Code output for error patterns
-2. On error detection: logs error, increments retry counter
-3. If retries < max: waits delay, resends prompt
-4. If retries ≥ max: rotates to next enabled model, resends prompt
-4. Process repeats until success
+For a request of `N` estimated input tokens plus an output budget, a route is eligible only when:
 
-## Privacy
+```
+N + output_budget + safety_margin <= model_context_window
+```
 
-- No telemetry or data collection
-- All data stored locally in `%LOCALAPPDATA%\ModelRotationManager`
-- Only SHA256 hashes of prompts stored (never full text)
-- No network calls except Claude Code's own API requests
-- Open source - full code auditable
+Exclude first, then send. Do not "try it and see".
 
-## Support
+## 4. One credential failing does not disable the provider
 
-- Issues: [GitHub Issues](https://github.com/Shreemeetnayak/model-rotation-manager/issues)
-- Discussions: [GitHub Discussions](https://github.com/Shreemeetnayak/model-rotation-manager/discussions)
+A failure on `Provider A / Credential 1` must leave `Provider A / Credential 2`,
+`Provider B`, and `Provider C` eligible. Only mark a whole provider down when every
+credential for it is cooling down.
+
+## 5. Concurrency
+
+Each request picks a free route. A busy route is skipped, never queued behind, and
+released as soon as the request finishes or fails. There is no global lock on a combo.
+
+## 6. Report honestly
+
+When no route can serve the request, say:
+
+- Required context: N tokens
+- Largest available context: M tokens
+- Which routes were excluded and why
+- Whether compression was attempted and the resulting token count
+
+Never report "done" without a verified API response.
