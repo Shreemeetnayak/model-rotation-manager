@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{State, Manager};
 use std::sync::Mutex;
 use std::process::{Command, Stdio};
 use serde::{Deserialize, Serialize};
@@ -269,7 +269,7 @@ fn rotate_model(state: State<'_, AppState>) -> Result<Option<ModelConfig>, Strin
 
 #[tauri::command]
 fn log_error(state: State<'_, AppState>, error_message: String, prompt: String) -> Result<(), String> {
-    let mut settings_lock = state.settings.lock().map_err(|e| e.to_string())?;
+    let settings_lock = state.settings.lock().map_err(|e| e.to_string())?;
     let mut state_lock = state.state.lock().map_err(|e| e.to_string())?;
 
     let prompt_hash = hash_prompt(&prompt);
@@ -316,7 +316,6 @@ fn start_claude_code(state: State<'_, AppState>, prompt: String) -> Result<(), S
     // Stop any existing process
     let _ = stop_claude_code(state.clone());
 
-    let settings_lock = state.settings.lock().map_err(|e| e.to_string())?;
     let state_lock = state.state.lock().map_err(|e| e.to_string())?;
 
     let current_model = state_lock.current_model.as_ref()
@@ -336,7 +335,7 @@ fn start_claude_code(state: State<'_, AppState>, prompt: String) -> Result<(), S
         .stderr(Stdio::piped())
         .stdin(Stdio::null());
 
-    let mut child = cmd.spawn()
+    let child = cmd.spawn()
         .map_err(|e| format!("Failed to spawn Claude Code: {}", e))?;
 
     // Store the process
